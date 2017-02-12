@@ -26,6 +26,7 @@ public class DummyDataCLR implements CommandLineRunner{
                         .builder()
                         .id(getUnique())
                         .path(e)
+                                .status(DownloadEntity.Status.STARTED)
                         .build()
                         )
                 );

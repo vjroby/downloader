@@ -1,6 +1,8 @@
 package com.downloadtheinternet;
 
+import com.downloadtheinternet.data.DownloadEntity;
 import com.downloadtheinternet.data.DownloadRequestDTO;
+import com.downloadtheinternet.data.DownloadResponseDTO;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +15,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertTrue;
 
 
 @RunWith(SpringRunner.class)
@@ -55,4 +60,32 @@ public class DownloaderApplicationIntegrationTests {
 		assertThat(responseEntity,containsString("textfile"));
 	}
 
+
+	@Test
+	public void shouldHandleLongResponseFromURL() throws Exception {
+		// Given
+		DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
+				.url("http://localhost:5555/stub/delayed.html") // <- delayed the stub with 10 seconds
+				.build();
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+
+		Long started = System.currentTimeMillis();
+		HttpEntity<DownloadRequestDTO> entity = new HttpEntity<DownloadRequestDTO>(requestDTO,headers);
+
+		// When
+		DownloadResponseDTO postEntity = this.restTemplate
+				.postForObject("/download", entity, DownloadResponseDTO.class );
+		Long completedIn = System.currentTimeMillis() - started;
+		DownloadEntity getEntityBeforeCompletion = this.restTemplate
+				.getForObject("/download/{fileId}", DownloadEntity.class, postEntity.getFileId());
+		Thread.sleep(11000); // <- wait for file to be downloaded
+		DownloadEntity getEntityAfterCompletion = this.restTemplate
+				.getForObject("/download/{fileId}", DownloadEntity.class, postEntity.getFileId());
+
+		// Then
+		assertTrue(completedIn < 9000);
+		assertThat(getEntityBeforeCompletion.getStatus().toString(), is(equalTo("STARTED")));
+		assertThat(getEntityAfterCompletion.getStatus().toString(), is(equalTo("COMPLETED")));
+	}
 }

@@ -12,4 +12,8 @@ public class DownloadException extends RuntimeException {
     public DownloadException(IOException e) {
         super(e);
     }
+
+    public DownloadException(InterruptedException e) {
+        super(e);
+    }
 }

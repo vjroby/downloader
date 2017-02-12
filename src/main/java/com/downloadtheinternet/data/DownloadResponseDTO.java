@@ -10,4 +10,5 @@ import lombok.*;
 public class DownloadResponseDTO {
 
     private String fileId;
+
 }
