@@ -1,15 +1,15 @@
 package com.downloadtheinternet.service;
 
 import com.downloadtheinternet.data.DownloadEntity;
+import com.downloadtheinternet.data.DownloadRequestDTO;
 import com.downloadtheinternet.data.DownloadResponseDTO;
 import com.downloadtheinternet.exception.DownloadException;
 import com.downloadtheinternet.repository.DownloadRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.vfs2.FileContent;
-import org.apache.commons.vfs2.FileObject;
-import org.apache.commons.vfs2.FileSystemManager;
-import org.apache.commons.vfs2.VFS;
+import org.apache.commons.vfs2.*;
+import org.apache.commons.vfs2.auth.StaticUserAuthenticator;
+import org.apache.commons.vfs2.impl.DefaultFileSystemConfigBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,17 +18,20 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.SecureRandom;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BiConsumer;
 
 @Service
 @Slf4j
 public class DownLoadServiceImpl implements DownloadService {
 
     private DownloadRepository downloadRepository;
-    private SecureRandom random = new SecureRandom();;
-
+    private SecureRandom random = new SecureRandom();
+    ;
 
     @Value("${downloader.downloadfolder}")
     private String downloadFolder;
@@ -46,9 +49,9 @@ public class DownLoadServiceImpl implements DownloadService {
     }
 
     @Override
-    public DownloadResponseDTO saveFile(String urlString) throws DownloadException {
+    public DownloadResponseDTO saveFile(final DownloadRequestDTO downloadRequestDTO) throws DownloadException {
         try {
-            URL url = new URL(urlString);
+            URI url = new URI(downloadRequestDTO.getUrl());
             url.getPath();
             File newFile = resolveFile(url);
             DownloadEntity downloadEntity = DownloadEntity.builder()
@@ -57,29 +60,40 @@ public class DownLoadServiceImpl implements DownloadService {
                     .path(url.getPath())
                     .status(DownloadEntity.Status.STARTED)
                     .build();
+            downloadRepository.save(downloadEntity);
 
             CompletionStage<DownloadEntity> future = CompletableFuture.supplyAsync(() -> {
-                    downloadFile(newFile, url, downloadEntity);
+                downloadFile(newFile, url, downloadEntity, downloadRequestDTO);
                 return downloadEntity;
 
             });
-            future.thenAccept(this::updateRepository);
-            downloadRepository.save(downloadEntity);
+            BiConsumer<DownloadEntity, Throwable> biConsumer = (dlEntity, e) -> {
+                if (e != null) {
+                    log.error("Something went wrong! Message: " + e.getLocalizedMessage());
+                    downloadEntity.error();
+                }
+                downloadRepository.save(downloadEntity);
+            };
+            future.whenComplete(biConsumer);
             return DownloadResponseDTO.builder()
                     .fileId(downloadEntity.getId())
                     .build();
-        } catch (IOException e) {
+        } catch (IOException | URISyntaxException e) {
             throw new DownloadException(e);
         }
     }
 
-    private DownloadEntity downloadFile(File newFile, URL url, DownloadEntity downloadEntity) {
+    private DownloadEntity downloadFile(File newFile, URI url, DownloadEntity downloadEntity, DownloadRequestDTO downloadResponseDTO) {
         try {
+            StaticUserAuthenticator auth = new StaticUserAuthenticator(url.getHost(), "username", "password");
+            FileSystemOptions opts = new FileSystemOptions();
+            DefaultFileSystemConfigBuilder.getInstance().setUserAuthenticator(opts, auth);
+
             FileSystemManager fileSystemManager = VFS.getManager();
-            FileObject fileObject = fileSystemManager.resolveFile(url);
+            FileObject fileObject = fileSystemManager.resolveFile(url.toString());
             FileContent fileContent = fileObject.getContent();
             FileOutputStream fileOutputStream = new FileOutputStream(newFile);
-            fileContent.write(fileOutputStream,Integer.valueOf(bufferSize));
+            fileContent.write(fileOutputStream, Integer.valueOf(bufferSize));
             downloadEntity.completed();
             log.info("A new file was downloaded. URL: {}, Path: {}", url, newFile.getPath());
             return downloadEntity;
@@ -90,27 +104,24 @@ public class DownLoadServiceImpl implements DownloadService {
         }
     }
 
-    private void updateRepository(DownloadEntity downloadEntity) {
-        downloadRepository.save(downloadEntity);
-    }
 
     private String createFilename(String path) {
         File folder = new File(downloadFolder);
-        if(!folder.exists()){
+        if (!folder.exists()) {
             folder.mkdir();
-            log.info("Created a new folder with this path: '{}'",folder.getPath());
+            log.info("Created a new folder with this path: '{}'", folder.getPath());
         }
         String basename = FilenameUtils.getBaseName(path);
         String extension = FilenameUtils.getExtension(path);
-        if(extension.length() !=0){
-            extension  = "." +extension;
+        if (extension.length() != 0) {
+            extension = "." + extension;
         }
 
-        return downloadFolder +"/" + basename +"_"+ System.currentTimeMillis() + extension;
+        return downloadFolder + "/" + basename + "_" + System.currentTimeMillis() + extension;
     }
 
-    private File resolveFile(URL url) throws IOException {
-        File file = new File(createFilename(url.getPath()));
+    private File resolveFile(URI uri) throws IOException {
+        File file = new File(createFilename(uri.getPath()));
         if (!file.exists()) {
             file.createNewFile();
         }

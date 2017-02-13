@@ -21,15 +21,15 @@ public class DownloadController {
     }
 
     @GetMapping(path = "/download/{fileId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public DownloadEntity getDownloadDetails(@PathVariable String fileId){
+    public DownloadEntity getDownloadDetails(@PathVariable String fileId) {
         log.info("Getting the download details for the file: {}", fileId);
         DownloadEntity entity = downloadService.retrieveEntity(fileId);
         return entity;
     }
 
-    @PostMapping(path = "/download", produces = MediaType.APPLICATION_JSON_VALUE,consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(path = "/download", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public DownloadResponseDTO saveFileFromURL(@RequestBody DownloadRequestDTO downloadRequestDTO) {
-        return downloadService.saveFile(downloadRequestDTO.getUrl());
+        return downloadService.saveFile(downloadRequestDTO);
     }
 }
 
