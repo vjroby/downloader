@@ -83,14 +83,15 @@ public class DownLoadServiceImpl implements DownloadService {
         }
     }
 
-    private DownloadEntity downloadFile(File newFile, URI url, DownloadEntity downloadEntity, DownloadRequestDTO downloadResponseDTO) {
+    private DownloadEntity downloadFile(File newFile, URI url, DownloadEntity downloadEntity, DownloadRequestDTO requestDTO) {
         try {
-            StaticUserAuthenticator auth = new StaticUserAuthenticator(url.getHost(), "username", "password");
+            StaticUserAuthenticator auth = new StaticUserAuthenticator(
+                    url.getHost(), requestDTO.getUsername(), requestDTO.getPassword());
             FileSystemOptions opts = new FileSystemOptions();
             DefaultFileSystemConfigBuilder.getInstance().setUserAuthenticator(opts, auth);
 
             FileSystemManager fileSystemManager = VFS.getManager();
-            FileObject fileObject = fileSystemManager.resolveFile(url.toString());
+            FileObject fileObject = fileSystemManager.resolveFile(url.toString(),opts);
             FileContent fileContent = fileObject.getContent();
             FileOutputStream fileOutputStream = new FileOutputStream(newFile);
             fileContent.write(fileOutputStream, Integer.valueOf(bufferSize));
