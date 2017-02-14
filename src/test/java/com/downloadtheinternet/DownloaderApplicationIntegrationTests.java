@@ -3,10 +3,9 @@ package com.downloadtheinternet;
 import com.downloadtheinternet.data.DownloadEntity;
 import com.downloadtheinternet.data.DownloadRequestDTO;
 import com.downloadtheinternet.data.DownloadResponseDTO;
+import com.downloadtheinternet.util.FileUtils;
 import com.github.tomakehurst.wiremock.junit.WireMockClassRule;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,7 +28,7 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestPropertySource(locations="classpath:test.properties")
+@TestPropertySource(locations = "classpath:test.properties")
 public class DownloaderApplicationIntegrationTests {
 
     @Autowired
@@ -49,7 +48,6 @@ public class DownloaderApplicationIntegrationTests {
                         .withBody("test\ntest\n")
                 )
         );
-
         wireMockRule.stubFor(get(urlPathEqualTo("/stub/delayed.html"))
                 .willReturn(aResponse()
                         .withFixedDelay(10_000)
@@ -63,6 +61,12 @@ public class DownloaderApplicationIntegrationTests {
                 )
         );
     }
+
+    @AfterClass
+    public static void deleteFolder() {
+        FileUtils.deleteFolder("downloadstest");
+    }
+
 
     @Test
     public void getDownloadDetailsById() throws Exception {
@@ -80,13 +84,11 @@ public class DownloaderApplicationIntegrationTests {
     @Test
     public void postHttpToDownload() throws Exception {
         // Given
-
         DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
                 .url("http://localhost:5555/stub/textfile.txt")
                 .build();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-
         HttpEntity<DownloadRequestDTO> entity = new HttpEntity<DownloadRequestDTO>(requestDTO, headers);
 
         // When
@@ -106,7 +108,6 @@ public class DownloaderApplicationIntegrationTests {
                 .build();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-
         Long started = System.currentTimeMillis();
         HttpEntity<DownloadRequestDTO> entity = new HttpEntity<DownloadRequestDTO>(requestDTO, headers);
 
@@ -124,5 +125,22 @@ public class DownloaderApplicationIntegrationTests {
         assertTrue(completedIn < 9000);
         assertThat(getEntityBeforeCompletion.getStatus().toString(), is(equalTo("STARTED")));
         assertThat(getEntityAfterCompletion.getStatus().toString(), is(equalTo("COMPLETED")));
+    }
+
+    @Test
+    public void shouldHandleMissingURL() throws Exception {
+        // Given
+        DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
+                .build();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<DownloadRequestDTO> entity = new HttpEntity<DownloadRequestDTO>(requestDTO, headers);
+
+        // When
+        ResponseEntity<DownloadResponseDTO> postEntity = this.restTemplate
+                .postForEntity("/download", entity, DownloadResponseDTO.class);
+
+        // Then
+        assertThat(postEntity.getStatusCodeValue(), is(400));
     }
 }

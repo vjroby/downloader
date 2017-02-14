@@ -4,6 +4,7 @@ package com.downloadtheinternet;
 import com.downloadtheinternet.data.DownloadEntity;
 import com.downloadtheinternet.data.DownloadRequestDTO;
 import com.downloadtheinternet.data.DownloadResponseDTO;
+import com.downloadtheinternet.util.FileUtils;
 import org.apache.sshd.SshServer;
 import org.apache.sshd.common.NamedFactory;
 import org.apache.sshd.server.Command;
@@ -13,10 +14,7 @@ import org.apache.sshd.server.command.ScpCommandFactory;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
 import org.apache.sshd.server.session.ServerSession;
 import org.apache.sshd.server.sftp.SftpSubsystem;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -68,6 +66,11 @@ public class DownloaderApplicationSftpIntegrationTest {
     @After
     public void teardown() throws Exception {
         sshd.stop();
+    }
+
+    @AfterClass
+    public static void deleteFolder() {
+        FileUtils.deleteFolder("downloadstest");
     }
 
     @Test

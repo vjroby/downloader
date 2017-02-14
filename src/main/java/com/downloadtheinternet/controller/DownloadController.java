@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+
 @RestController
 @Slf4j
 public class DownloadController {
@@ -28,7 +30,7 @@ public class DownloadController {
     }
 
     @PostMapping(path = "/download", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public DownloadResponseDTO saveFileFromURL(@RequestBody DownloadRequestDTO downloadRequestDTO) {
+    public DownloadResponseDTO saveFileFromURL(@Valid @RequestBody DownloadRequestDTO downloadRequestDTO) {
         return downloadService.saveFile(downloadRequestDTO);
     }
 }

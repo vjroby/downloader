@@ -30,17 +30,21 @@ import java.util.function.BiConsumer;
 public class DownLoadServiceImpl implements DownloadService {
 
     private DownloadRepository downloadRepository;
+    private FileSystemManager fileSystemManager;
     private SecureRandom random = new SecureRandom();
-    ;
-
-    @Value("${downloader.downloadfolder}")
     private String downloadFolder;
-    @Value("${downloader.buffersize}")
     private String bufferSize;
 
     @Autowired
-    public DownLoadServiceImpl(DownloadRepository downloadRepository) {
+    public DownLoadServiceImpl(DownloadRepository downloadRepository,
+                               FileSystemManager fileSystemManager,
+                               @Value("${downloader.downloadfolder}") String downloadFolder,
+                               @Value("${downloader.buffersize}") String buffersize
+    ) {
         this.downloadRepository = downloadRepository;
+        this.fileSystemManager = fileSystemManager;
+        this.downloadFolder = downloadFolder;
+        this.bufferSize = buffersize;
     }
 
     @Override
@@ -57,7 +61,7 @@ public class DownLoadServiceImpl implements DownloadService {
             DownloadEntity downloadEntity = DownloadEntity.builder()
                     .id(nextUUID())
                     .fileName(newFile.toPath().getFileName().toString())
-                    .path(url.getPath())
+                    .path(downloadRequestDTO.getUrl())
                     .status(DownloadEntity.Status.STARTED)
                     .build();
             downloadRepository.save(downloadEntity);
@@ -90,7 +94,6 @@ public class DownLoadServiceImpl implements DownloadService {
             FileSystemOptions opts = new FileSystemOptions();
             DefaultFileSystemConfigBuilder.getInstance().setUserAuthenticator(opts, auth);
 
-            FileSystemManager fileSystemManager = VFS.getManager();
             FileObject fileObject = fileSystemManager.resolveFile(url.toString(),opts);
             FileContent fileContent = fileObject.getContent();
             FileOutputStream fileOutputStream = new FileOutputStream(newFile);
