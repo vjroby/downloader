@@ -5,7 +5,10 @@ import com.downloadtheinternet.data.DownloadRequestDTO;
 import com.downloadtheinternet.data.DownloadResponseDTO;
 import com.downloadtheinternet.util.FileUtils;
 import com.github.tomakehurst.wiremock.junit.WireMockClassRule;
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +19,14 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
+
+import java.io.File;
+import java.nio.file.FileVisitOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Comparator;
+import java.util.Optional;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
@@ -97,6 +108,7 @@ public class DownloaderApplicationIntegrationTests {
 
         // Then
         assertThat(responseEntity, containsString("fileId"));
+
     }
 
 
@@ -125,6 +137,14 @@ public class DownloaderApplicationIntegrationTests {
         assertTrue(completedIn < 9000);
         assertThat(getEntityBeforeCompletion.getStatus().toString(), is(equalTo("STARTED")));
         assertThat(getEntityAfterCompletion.getStatus().toString(), is(equalTo("COMPLETED")));
+        Path rootPath = Paths.get("downloadstest");
+        Optional<File> findFile = Files.walk(rootPath, FileVisitOption.FOLLOW_LINKS)
+                .sorted(Comparator.reverseOrder())
+                .filter(p -> p.getFileName().toString().startsWith("delayed"))
+                .map(Path::toFile)
+                .findFirst();
+        assertTrue(findFile.isPresent());
+        assertTrue(findFile.get().length() > 0);
     }
 
     @Test

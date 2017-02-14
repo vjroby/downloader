@@ -3,6 +3,7 @@ package com.downloadtheinternet.service;
 import com.downloadtheinternet.data.DownloadEntity;
 import com.downloadtheinternet.data.DownloadRequestDTO;
 import com.downloadtheinternet.data.DownloadResponseDTO;
+import com.downloadtheinternet.exception.DownloadException;
 import com.downloadtheinternet.repository.DownloadRepository;
 import com.downloadtheinternet.util.FileUtils;
 import org.apache.commons.vfs2.FileContent;
@@ -11,13 +12,17 @@ import org.apache.commons.vfs2.FileSystemManager;
 import org.apache.commons.vfs2.FileSystemOptions;
 import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.test.context.junit4.SpringRunner;
+
+import java.io.IOException;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
@@ -35,6 +40,8 @@ public class DownLoadServiceImplTest {
     private FileContent fileContent;
     @Captor
     private ArgumentCaptor<FileSystemOptions> optionsArgumentCaptor;
+    @Rule
+    public ExpectedException expectedException = ExpectedException.none();
 
     private DownloadService downloadService;
 
@@ -63,7 +70,7 @@ public class DownLoadServiceImplTest {
     }
 
     @Test
-    public void shouldHandleSaveFileNoAuthorization() throws Exception {
+    public void shouldHandleSaveFile() throws Exception {
         // Given
         DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
                 .url("/some/path/to/a/file")
@@ -78,6 +85,38 @@ public class DownLoadServiceImplTest {
 
         // Then
         verify(downloadRepository, atLeast(1)).save(any(DownloadEntity.class));
+    }
+    @Test
+    public void shouldHandleUrlException() throws Exception {
+        // Given
+        expectedException.expect(DownloadException.class);
+//        expectedException.expectMessage("IO Exception");
 
+        DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
+                .url("121332131:321*^&*^&*")
+                .build();
+
+        // When
+        downloadService.saveFile(requestDTO);
+
+        // Then
+        verify(downloadRepository, never()).save(any(DownloadEntity.class));
+    }
+    @Test
+    public void shouldHandleFileException() throws Exception {
+        // Given
+        expectedException.expect(DownloadException.class);
+
+        DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
+                .url("/some/path")
+                .build();
+        when(fileSystemManager.resolveFile(any(String.class),any()))
+                .thenThrow(IOException.class);
+
+        // When
+        downloadService.saveFile(requestDTO);
+
+        // Then
+        verify(downloadRepository,times(2)).save(any(DownloadEntity.class));
     }
 }
