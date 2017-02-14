@@ -4,10 +4,6 @@ package com.downloadtheinternet;
 import com.downloadtheinternet.data.DownloadEntity;
 import com.downloadtheinternet.data.DownloadRequestDTO;
 import com.downloadtheinternet.data.DownloadResponseDTO;
-import com.jcraft.jsch.Channel;
-import com.jcraft.jsch.ChannelSftp;
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.Session;
 import org.apache.sshd.SshServer;
 import org.apache.sshd.common.NamedFactory;
 import org.apache.sshd.server.Command;
@@ -28,21 +24,18 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Hashtable;
 import java.util.List;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestPropertySource(locations="classpath:test.properties")
 public class DownloaderApplicationSftpIntegrationTest {
     private SshServer sshd;
 
@@ -78,6 +71,35 @@ public class DownloaderApplicationSftpIntegrationTest {
     }
 
     @Test
+    public void shouldHandleFailedAuthentication() throws Exception {
+        // Given
+        DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
+                .url("sftp://localhost:22999/src/main/resources/testsftp.conf")
+                .password("wrongpassword")
+                .username("someuser")
+                .build();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<DownloadRequestDTO> entity = new HttpEntity<DownloadRequestDTO>(requestDTO, headers);
+
+        // When
+        DownloadResponseDTO postEntity = this.restTemplate
+                .postForObject("/download", entity, DownloadResponseDTO.class);
+        DownloadEntity getEntity = this.restTemplate
+                .getForObject("/download/{fileId}", DownloadEntity.class, postEntity.getFileId());
+
+        while (getEntity.getStatus().toString().equals("STARTED")) {
+            Thread.sleep(1000);
+            getEntity = this.restTemplate
+                    .getForObject("/download/{fileId}", DownloadEntity.class, postEntity.getFileId());
+        }
+        // Then
+        assertThat(postEntity.getFileId(), is(notNullValue()));
+        assertThat(getEntity.getStatus().toString(), is(equalTo("ERROR")));
+    }
+
+    @Test
     public void shouldGetSftpFileFromMockServer() throws Exception {
         // Given
         DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
@@ -97,7 +119,7 @@ public class DownloaderApplicationSftpIntegrationTest {
                 .getForObject("/download/{fileId}", DownloadEntity.class, postEntity.getFileId());
 
         while (getEntity.getStatus().toString().equals("STARTED")) {
-            Thread.sleep(30000);
+            Thread.sleep(10000);
             getEntity = this.restTemplate
                     .getForObject("/download/{fileId}", DownloadEntity.class, postEntity.getFileId());
         }
@@ -143,31 +165,4 @@ public class DownloaderApplicationSftpIntegrationTest {
         assertThat(postEntity.getFileId(), is(notNullValue()));
         assertThat(getEntity.getStatus().toString(), is(equalTo("COMPLETED")));
     }
-
-    @Test
-    public void testPutAndGetFile() throws Exception {
-        JSch jsch = new JSch();
-        Hashtable config = new Hashtable();
-        config.put("StrictHostKeyChecking", "no");
-        JSch.setConfig(config);
-        Session session = jsch.getSession("remote-username", "localhost", 22999);
-        session.setPassword("remote-password");
-        session.connect();
-        Channel channel = session.openChannel("sftp");
-        channel.connect();
-        ChannelSftp sftpChannel = (ChannelSftp) channel;
-        final String testFileContents = "some file contents";
-        InputStream fileInputStream = DownloaderApplication.class.getClass().getResourceAsStream("/testsftp.conf");
-
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(testFileContents.getBytes())) {
-            sftpChannel.put(fileInputStream, "testsftp.conf", ChannelSftp.OVERWRITE);
-            String downloadedFileName = "downLoadFile";
-            sftpChannel.get("testsftp.conf", downloadedFileName);
-            File downloadedFile = new File(downloadedFileName);
-            assertTrue(downloadedFile.exists());
-
-        }
-
-    }
-
 }
