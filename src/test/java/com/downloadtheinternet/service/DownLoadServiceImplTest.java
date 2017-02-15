@@ -6,10 +6,7 @@ import com.downloadtheinternet.data.DownloadResponseDTO;
 import com.downloadtheinternet.exception.DownloadException;
 import com.downloadtheinternet.repository.DownloadRepository;
 import com.downloadtheinternet.util.FileUtils;
-import org.apache.commons.vfs2.FileContent;
-import org.apache.commons.vfs2.FileObject;
-import org.apache.commons.vfs2.FileSystemManager;
-import org.apache.commons.vfs2.FileSystemOptions;
+import org.apache.commons.vfs2.*;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Rule;
@@ -22,8 +19,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.io.IOException;
-
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
 
@@ -39,7 +37,7 @@ public class DownLoadServiceImplTest {
     @Mock
     private FileContent fileContent;
     @Captor
-    private ArgumentCaptor<FileSystemOptions> optionsArgumentCaptor;
+    private ArgumentCaptor<DownloadEntity> downloadEntityArgumentCaptor;
     @Rule
     public ExpectedException expectedException = ExpectedException.none();
 
@@ -49,9 +47,10 @@ public class DownLoadServiceImplTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         downloadService = new DownLoadServiceImpl(
-                downloadRepository, fileSystemManager,"dltest","120000"
+                downloadRepository, fileSystemManager, "dltest", "120000"
         );
     }
+
     @AfterClass
     public static void deleteFolder() {
         FileUtils.deleteFolder("dltest");
@@ -66,7 +65,7 @@ public class DownLoadServiceImplTest {
         downloadService.retrieveEntity(id);
 
         // Then
-        verify(downloadRepository,times(1)).findFirstById(id);
+        verify(downloadRepository, times(1)).findFirstById(id);
     }
 
     @Test
@@ -75,7 +74,7 @@ public class DownLoadServiceImplTest {
         DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
                 .url("/some/path/to/a/file")
                 .build();
-        when(fileSystemManager.resolveFile(any(),any(FileSystemOptions.class)))
+        when(fileSystemManager.resolveFile(any(), any(FileSystemOptions.class)))
                 .thenReturn(fileObject);
         when(fileObject.getContent()).thenReturn(fileContent);
 
@@ -85,12 +84,13 @@ public class DownLoadServiceImplTest {
 
         // Then
         verify(downloadRepository, atLeast(1)).save(any(DownloadEntity.class));
+        assertNotNull(responseDTO);
     }
+
     @Test
     public void shouldHandleUrlException() throws Exception {
         // Given
         expectedException.expect(DownloadException.class);
-//        expectedException.expectMessage("IO Exception");
 
         DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
                 .url("121332131:321*^&*^&*")
@@ -98,25 +98,26 @@ public class DownLoadServiceImplTest {
 
         // When
         downloadService.saveFile(requestDTO);
-
         // Then
         verify(downloadRepository, never()).save(any(DownloadEntity.class));
     }
+
     @Test
     public void shouldHandleFileException() throws Exception {
         // Given
-        expectedException.expect(DownloadException.class);
-
         DownloadRequestDTO requestDTO = DownloadRequestDTO.builder()
                 .url("/some/path")
                 .build();
-        when(fileSystemManager.resolveFile(any(String.class),any()))
-                .thenThrow(IOException.class);
+        when(fileSystemManager.resolveFile(any(String.class), any()))
+                .thenThrow(new FileSystemException("312312")); // <- exception handle in biConsumer
 
+        doNothing().when(downloadRepository).save(downloadEntityArgumentCaptor.capture());
         // When
         downloadService.saveFile(requestDTO);
-
+        Thread.sleep(2000); // <- for async
         // Then
-        verify(downloadRepository,times(2)).save(any(DownloadEntity.class));
+        verify(downloadRepository, times(2)).save(any(DownloadEntity.class));
+        DownloadEntity downloadEntity = downloadEntityArgumentCaptor.getValue();
+        assertThat(downloadEntity.getStatus().name(), is("ERROR"));
     }
 }

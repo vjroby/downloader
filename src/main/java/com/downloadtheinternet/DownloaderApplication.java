@@ -8,7 +8,7 @@ import org.springframework.context.annotation.ComponentScan;
 @ComponentScan(basePackages = "com.downloadtheinternet")
 public class DownloaderApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(DownloaderApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(DownloaderApplication.class, args);
+    }
 }

@@ -15,7 +15,7 @@ public class FileUtils {
                     .map(Path::toFile)
                     .peek(System.out::println)
                     .forEach(File::delete);
-        }catch (NoSuchFileException e){
+        } catch (NoSuchFileException e) {
             // do nothing
         } catch (IOException e) {
             e.printStackTrace();

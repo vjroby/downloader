@@ -94,7 +94,7 @@ public class DownLoadServiceImpl implements DownloadService {
             FileSystemOptions opts = new FileSystemOptions();
             DefaultFileSystemConfigBuilder.getInstance().setUserAuthenticator(opts, auth);
 
-            FileObject fileObject = fileSystemManager.resolveFile(url.toString(),opts);
+            FileObject fileObject = fileSystemManager.resolveFile(url.toString(), opts);
             FileContent fileContent = fileObject.getContent();
             FileOutputStream fileOutputStream = new FileOutputStream(newFile);
             fileContent.write(fileOutputStream, Integer.valueOf(bufferSize));

@@ -8,8 +8,11 @@ import org.springframework.stereotype.Component;
 
 import java.util.stream.Stream;
 
+/**
+ * Class used for testing
+ */
 @Component
-public class DummyDataCLR implements CommandLineRunner{
+public class DummyDataCLR implements CommandLineRunner {
 
     private static int i = 0;
 
@@ -20,14 +23,14 @@ public class DummyDataCLR implements CommandLineRunner{
     public void run(String... strings) throws Exception {
 
 
-        Stream.of("http://example.com/text.txt","ftp://localhost/some/path/file.zip")
+        Stream.of("http://example.com/text.txt", "ftp://localhost/some/path/file.zip")
                 .forEach(e ->
                         this.repository.save(DownloadEntity
-                        .builder()
-                        .id(getUnique())
-                        .path(e)
+                                .builder()
+                                .id(getUnique())
+                                .path(e)
                                 .status(DownloadEntity.Status.STARTED)
-                        .build()
+                                .build()
                         )
                 );
     }
@@ -35,7 +38,7 @@ public class DummyDataCLR implements CommandLineRunner{
     private String getUnique() {
         String notSoUnique = "notSoUnique";
         i++;
-        return notSoUnique+i;
+        return notSoUnique + i;
     }
 
 }

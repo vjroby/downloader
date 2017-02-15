@@ -19,6 +19,7 @@ public class DownloadEntity {
     public void completed() {
         this.status = Status.COMPLETED;
     }
+
     public void error() {
         this.status = Status.ERROR;
     }
