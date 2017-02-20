@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/vjroby/downloader.svg?branch=master)](https://travis-ci.org/vjroby/downloader)
 ####Spring Boot Application for downloading files from provided url [Downloader]
 
  For short It is a web REST application.
